@@ -1,5 +1,5 @@
 ##SECONDARY ANALYSIS AFTER IMPUTED LABORATORY DATASETS OBTAINED (WRITTEN BY JIANG LI)
-#CLICK "Code" then "Jump to" each section. 
+#CLICK "Code" then "Jump to" each section in Rstudio. 
 
 # required libraries ------------------------------------------------------
 library(VIM)
@@ -19,10 +19,29 @@ library(lattice)
 library(GGally)
 library(visdat)
 
+##Outline
+#1. missing pattern recognition
+#2. missing pattern for repeated measure
+#3. visualize the distribution before and after imputation
+#4. flux plot
+#5. load original file, holdout file, and imputed file
+#6. functions for error metric (RMSE, CR, AW, MAPE, and more)
+#7. functions for nRMSE per lab for imputed files in long or short format
+#8. get summary statistics of nRMSE
+#9. t-test of nRMSE from two 'Result_RMSE' files
+#10. functions for obtaining imputed value for holdouts only
+#11. visualization of imputed data for holdouts using scatter plot
+#12. visualization of t-test result accross different imputation algorithm
+#13. density plot for HbA1c before and after impuations for holdouts
+#14. function for uncertainty evaluation based on nRMSE from # of repeated imputations
+#15. missing pattern (NMAR or MAR) related to PCs derived from comorbidity matrix
+#16. linear mixed effect model to predict lifetime diabetics microvascular damage
+#17. pooling the result for the analysis
+#18. select ICD or CCS for comorbidity matrix and PCA analysis
 
-# missing pattern ---------------------------------------------------------
+# missing pattern recognition---------------------------------------------------------
 
-head(labData_gs_transformed_clean)
+head(labData_gs_transformed_clean) #file for original lab data matrix
 
 PC <- read.csv("path_to_PC_file.csv", header = T, stringsAsFactors = F)  #PCs derived from PCA analysis
 
@@ -37,7 +56,7 @@ dev.off()
 
 labData_gs_transformed_clean_pc_select <- labData_gs_transformed_clean_pc[, colnames(labData_gs_transformed_clean_pc) %in% c("ID", "TIME", "X13457.7", "X17856.6", "X2160.0", "X2823.3", "X788.0", "X770.8")]
 
-# Scatter plot matrix with lattice  
+# Scatter plot matrix with lattice  to show the correlation (Supplementary figure 6)
 tiff("test_scatterplot_splom.tiff", units="in", width=8, height=8, res=300)
 splom( ~ labData_gs_transformed_clean_pc_select[labData_gs_transformed_clean_pc_select$TIME==2, 2:7])
 dev.off()
@@ -47,7 +66,7 @@ tiff("test_scatterplot_splom.tiff", units="in", width=8, height=8, res=300)
 splom( ~ labData_gs_transformed_clean_pc_select[,2:7],  pch = 16, col = as.factor(labData_gs_transformed_clean_pc_select$TIME))
 dev.off()
 
-
+fo
 # Produce a matrix of plots for the first four variables 
 labData.gg <- ggpairs(data = labData_gs_transformed_clean_pc_select, columns = 2:7)
 labData.gg
@@ -71,6 +90,7 @@ head(PC)
 labData_gs_transformed_clean_before_PC <- merge(labData_gs_transformed_clean_before, PC, by = "ID")
 head(labData_gs_transformed_clean_before_PC)
 
+#Figure 2A, 2B
 library(naniar)
 gg_miss_var(labData_gs_transformed_clean_before_PC[, 1:47])
 
@@ -113,7 +133,7 @@ par(mar=c(1.4,1.4,1.4,2.1))
 vis_miss(labData_gs_transformed_clean_before_PC[, 1:47])
 dev.off()
 
-#marginplot
+#marginplot (supplementary figure 2)
 marginplot(labData_gs_transformed_clean_before_PC[,c("X13457.7","X742.7")])
 marginplot(labData_gs_transformed_clean_after_PC[,c("X13457.7","X742.7")])
 
@@ -128,7 +148,7 @@ marginplot(labData_gs_transformed_clean_after_PC[,c("X13457.7","X788.0")])
 
 
 # missing pattern for repeated measure ------------------------------------
-
+#for Figure 2A3 and 2B3
 str(df.data_before)
 sum(is.na(df.data_before$LAB_VALUE_TXT)) 
 sum(is.na(df.data_after$LAB_VALUE_TXT))  
@@ -166,7 +186,7 @@ df.data_before_after_valid_3year_count <- data.frame(df.data_before_after_valid_
 df.data_before_after_valid_3year_count$TIME <- 3
 
 # visualize the distribution before and after imputation  -----------------
-
+#for Supplementary figure 1
 #density plots
 plot(imp9, c("X511.x", "X548.x", "X601.x", "X814.x", "X10774.x"))
 
@@ -232,7 +252,7 @@ dev.off()
 
 
 # flux plot ---------------------------------------------------------------
-
+#for Figure 2A3 and 2B3
 head(labData_gs_before_after_transformed_clean)
 flux(labData_gs_before_after_transformed_clean, local = names(labData_gs_before_after_transformed_clean))
 #remove some variables if any.
@@ -287,13 +307,13 @@ imputedData
 #long format
 imputedDataRepeat 
 
-# functions for error metric ----------------------------------------------
+# functions for error metric (RMSE, CR, AW) ----------------------------------------------
 
 calculateMAPE = function(estimate, parameter, method = "raw") {
   all_vals = c(estimate, parameter)
   df = data.frame(estimate, parameter)
   # 0.01 is added to make sure nonzero value
-  mape = sum((abs(df$parameter - df$estimate)) / (abs(parameter) + 0.01)) / sum(!is.na(df$estimate)) * 100  
+  mape = sum((abs(df$parameter - df$estimate)) / (abs(parameter) + 0.01)) / sum(!is.na(df$estimate)) * 100  #adding 0.01 to avoid 0 
   return(mape)
 }
 
@@ -312,7 +332,7 @@ calculateRMSE = function(estimate, parameter, method = "raw") {
   return(rmse)
 }
 
-#nRMSE using sd
+#nRMSE using sd (this is selected function for normalized RMSE in this study)
 calculateRMSE = function(estimate, parameter, method = "sd") {
   all_vals = c(estimate, parameter)
   df = data.frame(estimate, parameter)
@@ -457,6 +477,7 @@ Result_UNIVARIATE <- rbind(Result_CR_AW_pmm_2lpan_univariate_0pc, Result_CR_AW_p
 Result <- rbind(Result_ALL, Result_UNIVARIATE)
 head(Result_ALL)
 
+#Supplementary figure 3 and supplementary figure 9
 tiff("test12.tiff", units="in", width=15, height=6, res=600)
 ggplot(Result_ALL, aes(x = lab, y = mean_coverage_rate, ymin = LCI_coverage_rate, ymax = UCI_coverage_rate)) + 
   geom_pointrange(aes(col = factor(model)), position=position_dodge(width=0.8)) + 
@@ -476,9 +497,9 @@ ggplot(Result, aes(x = lab, y = mean_average_width, ymin = LCI_average_width, ym
 dev.off()
 
 
-# calculate nRMSE for imputed files in long and short format --------------
+# functions for nRMSE per lab for imputed files in long and short format --------------
 
-#the following code is to calculate nRMSE for 2l.pan longformat imputed files
+#to calculate nRMSE for 2l.pan longformat imputed files
 RMSE <- data.frame()
 merge <- NULL
 results <- NULL
@@ -804,7 +825,7 @@ Result_imputedHoldOut_labs_summary_test <- Result_imputedHoldOut_labs_summary[Re
 library(ggplot2)
 library(ggExtra)
 stat = cor.test(Result_imputedHoldOut_labs_summary_test$original, Result_imputedHoldOut_labs_summary_test$imputed_mean,  method = "pearson", use = "complete.obs")
-
+#Figure 6, supplementary figure 4
 tiff("test.tiff", units="in", width=6, height=6, res=600)
 p <- ggplot(Result_imputedHoldOut_labs_summary_test, aes(x = original, y = imputed_mean, ymin = imputed_lower, ymax = imputed_upper)) + 
   geom_pointrange(position=position_dodge(width=0.8),  width=1, size=1, color="darkred") + 
@@ -860,7 +881,7 @@ ggplot(RMSE_plot) +
 dev.off()
 
 # visualization of t-test result across different imputation algorithm  --------
-
+#Figure 5 and supplementary figure 5
 #t-test result1
 RMSE_plot1 
 #t-test result2
@@ -918,7 +939,7 @@ ggplot(RMSE_plot_final) +
 dev.off()
 
 
-# density plot for HgA1c before and after imputation for holdouts --------
+# density plot for HbA1c before and after imputation for holdouts --------
 
 unique(labData_gs_before_after_transformed_clean$ID)
 
@@ -1074,7 +1095,7 @@ multiplot(p1, p2, p3, p4, p5, p6, cols = 2)
 
 
 # function for uncertainty evaluation based on nRMSE from # of repeated imputations --------
-
+#Figure 4
 repeats <- NULL
 RMSE <- data.frame()
 merge <- NULL
@@ -1157,8 +1178,8 @@ ggplot(Result_RMSE_NUM_final_monotone_FCS_2lpan, aes(x = numrepeat, y = rmse_mea
 dev.off()
 
 
-# missing pattern (NMAR) related to PCs derived from cormorbidity matrix --------
-
+# missing pattern (NMAR or MAR) related to PCs derived from comorbidity matrix --------
+#Figure 2A4 and 2B4, supplementary figure 7.
 dir.create("path_to_directory")
 result <- NULL
 result1 <- NULL
@@ -1273,8 +1294,7 @@ for (lab in all_labs) {
 }
 
 
-# linear mixed effect model to predict lifetime diabetics  ----------------
-
+# linear mixed effect model to predict lifetime diabetics microvascular  ----------------
 library(lme4)
 
 head(imputedData) #for short format
@@ -1292,7 +1312,7 @@ labs <- colnames(imputedDataRepeat_50_shortformat[,4:ncol(imputedDataRepeat_50_s
 
 #holdout values
 transformed_clean_holdout <- labData_gs_before_after_transformed_clean_holdout %>%
-  dplyr::select(ID, X17856.6) #select HgA1c laboratory variable
+  dplyr::select(ID, X17856.6) #select HbA1c laboratory variable
 ID <- transformed_clean_holdout$ID  #no need to remove "PT" prefix
 
 #holdout cases
@@ -1359,6 +1379,9 @@ mids_creator = function(imputedDataRepeat, ID) {
 
 imp <- mids_creator(imputedDataRepeat_50_shortformat, ID)
 
+
+# pooling the result for the analysis -------------------------------------
+#Table 1
 library(purrr)
 fit5_holdoutcase <- imp %>%
   purrr::map(lme4::glmer,
@@ -1397,3 +1420,101 @@ grandvar <- within + ((1 + (1/50)) * between)
 #comparing the effect size (odds ratio) between imputation algorithms
 t.test(pool_result_select$estimate, pool_result1_select$estimate, alternative = "two.sided", var.equal = TRUE)
 
+
+# Select ICD or CCS for comorbidity matrix and PCA analysis --------------
+#Supplementary figure 3
+#function to remove rare diagnostic codes (CCS, ICD9 or others)
+removeCCSCols = function(data, sum_threshold) {
+  na_lab_data = apply(data, 2, function(x){sum(x)/length(x) < sum_threshold})
+  data = data[, which(!na_lab_data)]
+  return(data)
+}
+
+#ptIcd9_threshold = removeCCSCols(ptIcd9, sum_threshold) #sum_threshold is the sparsely check to remove rare comorbidities.
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.1) #1769*76 #using 10% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.4) #1769*14 #using 40% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.2) #1769*46 #using 20% as cutoff and this number can be chaged to up to 40%
+
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.1) #5912*55 #using 10% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.4) #5912*5 #using 40% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.2) #5912*20 #using 20% as cutoff and this number can be chaged to up to 40%
+
+
+#GNSIS for before
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.1) #9037*40 #using 10% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.4) #9037*3 #using 40% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.2) #9037*16 #using 20% as cutoff and this number can be chaged to up to 40%
+#GNSIS for ALL
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.1) #9037*82 #using 10% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.4) #9037*6 #using 40% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.2) #9037*35 #using 20% as cutoff and this number can be chaged to up to 40%
+
+#GNSIS for 3years
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.1) #9037*69 #using 10% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.4) #9037*5 #using 40% as cutoff and this number can be chaged to up to 40%
+ptIcd9_threshold = removeCCSCols(ptIcd9, 0.2) #9037*28 #using 20% as cutoff and this number can be chaged to up to 40%
+
+#PCA analysis
+library(factoextra)
+ptIcd9_threshold.pca <- prcomp(ptIcd9_threshold, scale = FALSE)
+
+# Open a pdf file
+pdf("scree_plot.pdf") 
+# 2. Create a plot
+fviz_eig(ptIcd9_threshold.pca, addlabels=TRUE, hjust = -0.3, barfill="white", barcolor ="darkblue",
+         linecolor ="red") + labs(title = "Variances - PCA", x = "Principal Components", y = "% of variances")
+# Close the pdf file
+dev.off() 
+
+# 1. Open jpeg file
+tiff("scree_plot.tiff", width=6, height=4, res=600)
+# 2. Create the plot
+fviz_eig(ptIcd9_threshold.pca, addlabels=TRUE, hjust = -0.3, barfill="white", barcolor ="darkblue",
+         linecolor ="red") + labs(title = "Variances - PCA", x = "Principal Components", y = "% of variances")
+# 3. Close the file
+dev.off()
+
+# Eigenvalues
+eig.val <- get_eigenvalue(ptIcd9_threshold.pca)
+eig.val
+
+# ptIcd9_threshold Results for Variables
+ptIcd9_threshold.var <- get_pca_var(ptIcd9_threshold.pca)
+ptIcd9_threshold.var$coord          # Coordinates
+ptIcd9_threshold.var$contrib        # Contributions to the PCs
+ptIcd9_threshold.var$cos2           # Quality of representation 
+# ptIcd9_threshold Results for individuals
+ptIcd9_threshold.ind <- get_pca_ind(ptIcd9_threshold.pca)
+ptIcd9_threshold.ind$coord          # Coordinates
+ptIcd9_threshold.ind$contrib        # Contributions to the PCs
+ptIcd9_threshold.ind$cos2           # Quality of representation 
+
+head(ptIcd9_threshold.ind$contrib)
+#Variable contributions to the principal axes:
+# Contributions of variables to PC1
+tiff("HF_PCA_DIM1.jpg", units="in", width=6, height=4, res=600)
+fviz_contrib(ptIcd9_threshold.pca, choice = "var", axes = 1, top = 10)
+dev.off()
+# Contributions of variables to PC2
+tiff("HF_PCA_DIM2.jpg", units="in", width=6, height=4, res=600)
+fviz_contrib(ptIcd9_threshold.pca, choice = "var", axes = 2, top = 10)
+dev.off()
+# Contributions of variables to PC3
+tiff("HF_PCA_DIM3.jpg", units="in", width=6, height=4, res=600)
+fviz_contrib(ptIcd9_threshold.pca, choice = "var", axes = 3, top = 10)
+dev.off()
+# Contributions of variables to PC4
+tiff("HF_PCA_DIM4.jpg", units="in", width=6, height=4, res=600)
+fviz_contrib(ptIcd9_threshold.pca, choice = "var", axes = 4, top = 10)
+dev.off()
+# Contributions of variables to PC5
+tiff("HF_PCA_DIM5.jpg", units="in", width=6, height=4, res=600)
+fviz_contrib(ptIcd9_threshold.pca, choice = "var", axes = 5, top = 10)
+dev.off()
+# Contributions of variables to PC6
+fviz_contrib(ptIcd9_threshold.pca, choice = "var", axes = 10, top = 10)
+
+PC <- data.frame(ptIcd9_threshold.ind$contrib[, 1:20])
+PC$ID <- rownames(PC)
+head(PC)
+write.csv(ptIcd9, "ptIcd9_forpc_20percent_ALLCASES_HF.csv", col.names = F, row.names = T, quote = F)
