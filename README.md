@@ -16,3 +16,5 @@ Overall performance of multi-level method (2l.pan) is superior to cross-sectiona
 1. "<i>03012021_imputation_codes.R</i>"- has the codes related to statistical anlayses as well as data visualization
 2. "<i>03012021_imputation_function.R</i>"- has the codes related to all imputation algorithms used in this manuscript.
 
+# Publication
+[Imputation of missing values for electronic health record laboratory data](https://www.nature.com/articles/s41746-021-00518-0)
